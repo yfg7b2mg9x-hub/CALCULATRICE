@@ -110,7 +110,7 @@
             
             const [financiers, setFinanciers] = useState([
                 { id: 1, nom: 'Loisirs Finance', actif: true, type: 'loisirsfinance' },
-                { id: 2, nom: 'Arkéa', actif: false, type: 'autre', taux: 1.8 },
+                { id: 2, nom: 'Arkéa', actif: false, type: 'arkea' },
                 { id: 3, nom: 'CA Auto Bank', actif: false, type: 'autre', taux: 2.1 },
                 { id: 4, nom: 'Santander', actif: false, type: 'autre', taux: 1.9 },
                 { id: 5, nom: 'Cofidis', actif: false, type: 'autre', taux: 2.2 }
@@ -188,6 +188,103 @@
                 };
             };
 
+            const calculerArkea = () => {
+                const mf = parseFloat(montantFinance) || 0;
+                const va = parseFloat(volumeAnnuel) || 0;
+                const ratio = parseFloat(ratioAssurances) || 0;
+
+                // 1. Rémunération de base
+                const tauxBase = typeFinancement === 'loa' ? 3.5 : 2.5;
+                const commBase = (mf * tauxBase) / 100;
+
+                // 2. Commissions sur assurances
+                let commAssurances = 0;
+                let montantsForfaitaires = 0;
+                let nbAssurancesArkea = 0;
+
+                // Assurances en pourcentage
+                if (assurances.decesEmprunteur) {
+                    commAssurances += (mf * 0.7) / 100;
+                    nbAssurancesArkea++;
+                }
+                if (assurances.decesCoEmprunteur) {
+                    commAssurances += (mf * 0.7) / 100;
+                    nbAssurancesArkea++;
+                }
+                if (assurances.complementaireFinancement) {
+                    commAssurances += (mf * 0.7) / 100;
+                    nbAssurancesArkea++;
+                }
+
+                // Assurances forfaitaires
+                if (assurances.extensionGarantie) {
+                    montantsForfaitaires += 30;
+                    nbAssurancesArkea++;
+                }
+                if (assurances.contratEntretien) {
+                    montantsForfaitaires += 60;
+                    nbAssurancesArkea++;
+                }
+
+                // 3. Prime de volume annuel
+                const paliersVolumeArkea = [
+                    [2225000, 3.0],
+                    [2000000, 2.8],
+                    [1500000, 2.4],
+                    [1000000, 2.15],
+                    [750000, 1.9],
+                    [500000, 1.65],
+                    [0, 1.15]
+                ];
+                let tauxVolume = 1.15;
+                for (let [seuil, taux] of paliersVolumeArkea) {
+                    if (va >= seuil) {
+                        tauxVolume = taux;
+                        break;
+                    }
+                }
+                const primeVolume = (mf * tauxVolume) / 100;
+
+                // 4. Prime sur taux de recours aux assurances
+                let primeRecours = 0;
+                if (ratio >= 1.85) {
+                    primeRecours = (mf * 0.4) / 100;
+                } else if (ratio >= 1.75) {
+                    primeRecours = (mf * 0.3) / 100;
+                } else if (ratio >= 1.65) {
+                    primeRecours = (mf * 0.2) / 100;
+                }
+
+                // 5. Prime d'animation vendeur (0,25% si au moins une assurance)
+                let primeAnimation = 0;
+                if (nbAssurancesArkea > 0) {
+                    primeAnimation = (mf * 0.25) / 100;
+                }
+
+                // Calcul du total
+                const totalMensuel = commBase + commAssurances + montantsForfaitaires;
+                const totalAnnuel = primeVolume + primeRecours + primeAnimation;
+                const total = totalMensuel + totalAnnuel;
+
+                return {
+                    commBase,
+                    commAssurances,
+                    montantsForfaitaires,
+                    primeVolume,
+                    primeRecours,
+                    primeAnimation,
+                    total,
+                    totalMensuel,
+                    totalAnnuel,
+                    details: {
+                        tauxBase,
+                        nbAssurancesArkea,
+                        tauxVolume,
+                        ratio
+                    }
+                };
+            };
+
             const calculerAutre = (f) => {
                 const mf = parseFloat(montantFinance) || 0;
                 const comm = (mf * f.taux) / 100;
@@ -199,10 +296,17 @@
             };
 
             const financiersActifs = financiers.filter(f => f.actif);
-            const resultats = financiersActifs.map(f => ({
-                ...f,
-                rem: f.type === 'loisirsfinance' ? calculerLoisirsFinance() : calculerAutre(f)
-            })).sort((a, b) => b.rem.total - a.rem.total);
+            const resultats = financiersActifs.map(f => {
+                let rem;
+                if (f.type === 'loisirsfinance') {
+                    rem = calculerLoisirsFinance();
+                } else if (f.type === 'arkea') {
+                    rem = calculerArkea();
+                } else {
+                    rem = calculerAutre(f);
+                }
+                return { ...f, rem };
+            }).sort((a, b) => b.rem.total - a.rem.total);
 
             if (!authentifie) {
                 return (
@@ -459,6 +563,68 @@
                                             </div>
                                         </div>
                                     </div>
+
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-6 mt-12">📋 Barèmes Arkéa</h2>
+
+                                    <div className="grid md:grid-cols-2 gap-6">
+                                        <div className="bg-purple-50 p-4 rounded-lg">
+                                            <h4 className="font-semibold text-gray-800 mb-3">Rémunération de base</h4>
+                                            <div className="space-y-2 text-sm">
+                                                <div className="flex justify-between"><span>Crédit :</span><span className="font-bold">2,5%</span></div>
+                                                <div className="flex justify-between"><span>LOA :</span><span className="font-bold">3,5%</span></div>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-purple-50 p-4 rounded-lg">
+                                            <h4 className="font-semibold text-gray-800 mb-3">Assurances (pourcentage)</h4>
+                                            <div className="space-y-2 text-sm">
+                                                <div className="flex justify-between"><span>Décès emprunteur :</span><span className="font-bold">0,7%</span></div>
+                                                <div className="flex justify-between"><span>Décès co-emprunteur :</span><span className="font-bold">0,7%</span></div>
+                                                <div className="flex justify-between"><span>Complémentaire :</span><span className="font-bold">0,7%</span></div>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-purple-50 p-4 rounded-lg">
+                                            <h4 className="font-semibold text-gray-800 mb-3">Assurances (forfait)</h4>
+                                            <div className="space-y-2 text-sm">
+                                                <div className="flex justify-between"><span>Extension garantie :</span><span className="font-bold">30€</span></div>
+                                                <div className="flex justify-between"><span>Contrat entretien :</span><span className="font-bold">60€</span></div>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-purple-50 p-4 rounded-lg">
+                                            <h4 className="font-semibold text-gray-800 mb-3">Prime animation vendeur</h4>
+                                            <div className="space-y-2 text-sm">
+                                                <div className="flex justify-between"><span>Si ≥ 1 assurance :</span><span className="font-bold">0,25%</span></div>
+                                                <div className="text-xs text-gray-600 mt-2">Versée en annuel</div>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-purple-50 p-4 rounded-lg">
+                                            <h4 className="font-semibold text-gray-800 mb-3">Prime volume annuel</h4>
+                                            <div className="space-y-1 text-xs">
+                                                {[
+                                                    ['< 500k', '1,15%'], ['≥ 500k', '1,65%'], ['≥ 750k', '1,90%'],
+                                                    ['≥ 1M', '2,15%'], ['≥ 1,5M', '2,40%'], ['≥ 2M', '2,80%'],
+                                                    ['≥ 2,225M', '3%']
+                                                ].map(([s, t], i) => (
+                                                    <div key={i} className="flex justify-between py-1 border-b border-purple-200">
+                                                        <span>{s}</span><span className="font-bold">{t}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-purple-50 p-4 rounded-lg">
+                                            <h4 className="font-semibold text-gray-800 mb-3">Prime recours assurances</h4>
+                                            <div className="space-y-2 text-sm">
+                                                <div className="flex justify-between"><span>Ratio ≥ 1,65 :</span><span className="font-bold">0,20%</span></div>
+                                                <div className="flex justify-between"><span>Ratio ≥ 1,75 :</span><span className="font-bold">0,30%</span></div>
+                                                <div className="flex justify-between"><span>Ratio ≥ 1,85 :</span><span className="font-bold">0,40%</span></div>
+                                            </div>
+                                            <div className="text-xs text-gray-600 mt-2">Concerne : décès, complémentaire, garantie, révision</div>
+                                        </div>
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -481,13 +647,18 @@
                                                             {f.rem.details.nbAss} assurance(s) • Coeff: {(f.rem.details.coeff * 100).toFixed(0)}%
                                                         </p>
                                                     )}
+                                                    {f.type === 'arkea' && (
+                                                        <p className="text-sm text-gray-600 mt-1">
+                                                            {f.rem.details.nbAssurancesArkea} assurance(s) • Taux base: {f.rem.details.tauxBase}%
+                                                        </p>
+                                                    )}
                                                 </div>
                                                 <div className="text-right">
                                                     <p className="text-3xl font-bold text-indigo-600">
                                                         {f.rem.total.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
                                                     </p>
                                                     <p className="text-sm text-gray-500">Total rémunération</p>
-                                                    {f.type === 'loisirsfinance' && (
+                                                    {(f.type === 'loisirsfinance' || f.type === 'arkea') && (
                                                         <div className="mt-2 text-xs">
                                                             <div className="text-green-700 font-semibold">
                                                                 💰 {f.rem.totalMensuel.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} € (mensuel)
@@ -532,6 +703,52 @@
                                                                     <div className="flex justify-between">
                                                                         <span>Part intermédiation (sur bonus annuel de {f.rem.commInter.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €):</span>
                                                                         <span className="font-bold">{f.rem.partDossierInter.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between pt-2 border-t border-gray-300">
+                                                                        <span className="font-semibold">Total annuel:</span>
+                                                                        <span className="font-bold text-blue-700">{f.rem.totalAnnuel.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </>
+                                                    ) : f.type === 'arkea' ? (
+                                                        <>
+                                                            <div className="pb-3 border-b-2 border-green-200">
+                                                                <p className="text-xs font-bold text-green-700 mb-2">💰 COMMISSION MENSUELLE</p>
+                                                                <div className="space-y-2">
+                                                                    <div className="flex justify-between">
+                                                                        <span>Commission base ({f.rem.details.tauxBase}%):</span>
+                                                                        <span className="font-bold">{f.rem.commBase.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between">
+                                                                        <span>Commissions assurances (%):</span>
+                                                                        <span className="font-bold">{f.rem.commAssurances.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between">
+                                                                        <span>Montants forfaitaires (garantie + révision):</span>
+                                                                        <span className="font-bold">{f.rem.montantsForfaitaires.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between pt-2 border-t border-gray-300">
+                                                                        <span className="font-semibold">Total mensuel:</span>
+                                                                        <span className="font-bold text-green-700">{f.rem.totalMensuel.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div>
+                                                                <p className="text-xs font-bold text-blue-700 mb-2">📅 PRIMES ANNUELLES</p>
+                                                                <div className="space-y-2">
+                                                                    <div className="flex justify-between">
+                                                                        <span>Prime volume ({f.rem.details.tauxVolume}%):</span>
+                                                                        <span className="font-bold">{f.rem.primeVolume.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between">
+                                                                        <span>Prime recours assurances (ratio {f.rem.details.ratio}):</span>
+                                                                        <span className="font-bold">{f.rem.primeRecours.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between">
+                                                                        <span>Prime animation vendeur (0,25%):</span>
+                                                                        <span className="font-bold">{f.rem.primeAnimation.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
                                                                     </div>
                                                                     <div className="flex justify-between pt-2 border-t border-gray-300">
                                                                         <span className="font-semibold">Total annuel:</span>

@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculatrice Financiers Idylcar</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        
+        const Lock = () => (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+        );
+        
+        const Calculator = () => (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="4" y="2" width="16" height="20" rx="2"/>
+                <line x1="8" y1="6" x2="16" y2="6"/>
+                <line x1="16" y1="14" x2="16" y2="18"/>
+                <line x1="8" y1="14" x2="8" y2="18"/>
+                <line x1="12" y1="14" x2="12" y2="18"/>
+            </svg>
+        );
+        
+        const BookOpen = () => (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+            </svg>
+        );
+        
+        const ChevronDown = () => (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="6 9 12 15 18 9"/>
+            </svg>
+        );
+        
+        const ChevronUp = () => (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="18 15 12 9 6 15"/>
+            </svg>
+        );
+
+        function CalculatriceFinanciers() {
+            const [authentifie, setAuthentifie] = useState(false);
+            const [motDePasse, setMotDePasse] = useState('');
+            const [erreur, setErreur] = useState(false);
+            
+            const MOT_DE_PASSE_CORRECT = 'Idyltricefi20252026!';
+            const DUREE_SESSION = 2 * 60 * 60 * 1000;
+
+            useEffect(() => {
+                const sessionExpiration = sessionStorage.getItem('sessionExpiration');
+                if (sessionExpiration) {
+                    const maintenant = new Date().getTime();
+                    if (maintenant < parseInt(sessionExpiration)) {
+                        setAuthentifie(true);
+                    } else {
+                        sessionStorage.removeItem('sessionExpiration');
+                    }
+                }
+            }, []);
+
+            const verifierMotDePasse = () => {
+                if (motDePasse === MOT_DE_PASSE_CORRECT) {
+                    const expiration = new Date().getTime() + DUREE_SESSION;
+                    sessionStorage.setItem('sessionExpiration', expiration.toString());
+                    setAuthentifie(true);
+                    setErreur(false);
+                } else {
+                    setErreur(true);
+                    setMotDePasse('');
+                }
+            };
+
+            const handleKeyPress = (e) => {
+                if (e.key === 'Enter') {
+                    verifierMotDePasse();
+                }
+            };
+
+            const [montantFinance, setMontantFinance] = useState('50000');
+            const [volumeAnnuel, setVolumeAnnuel] = useState('800000');
+            const [typeFinancement, setTypeFinancement] = useState('credit');
+            const [typeBareme, setTypeBareme] = useState('standard');
+            const [tauxSpecial, setTauxSpecial] = useState('');
+            const [ratioAssurances, setRatioAssurances] = useState('1.5');
+            const [bonusReseauIdylcar, setBonusReseauIdylcar] = useState('35000000');
+            const [ongletActif, setOngletActif] = useState('calculatrice');
+            const [detailsOuverts, setDetailsOuverts] = useState({});
+            
+            const [assurances, setAssurances] = useState({
+                decesEmprunteur: true,
+                decesCoEmprunteur: false,
+                extensionGarantie: true,
+                complementaireFinancement: false,
+                assistance: false,
+                contratEntretien: false
+            });
+            
+            const [financiers, setFinanciers] = useState([
+                { id: 1, nom: 'Loisirs Finance', actif: true, type: 'loisirsfinance' },
+                { id: 2, nom: 'Arkéa', actif: false, type: 'autre', taux: 1.8 },
+                { id: 3, nom: 'CA Auto Bank', actif: false, type: 'autre', taux: 2.1 },
+                { id: 4, nom: 'Santander', actif: false, type: 'autre', taux: 1.9 },
+                { id: 5, nom: 'Cofidis', actif: false, type: 'autre', taux: 2.2 }
+            ]);
+
+            const compterAssurancesLF = () => {
+                let count = 0;
+                if (assurances.decesEmprunteur) count++;
+                if (assurances.decesCoEmprunteur) count++;
+                if (assurances.extensionGarantie) count++;
+                if (assurances.complementaireFinancement) count++;
+                if (assurances.contratEntretien) count++;
+                return count;
+            };
+
+            const calculerLoisirsFinance = () => {
+                const mf = parseFloat(montantFinance) || 0;
+                const va = parseFloat(volumeAnnuel) || 0;
+                const ratio = parseFloat(ratioAssurances) || 0;
+                const bonusReseau = parseFloat(bonusReseauIdylcar) || 35000000;
+
+                let primeBase = typeFinancement === 'loa' ? 5 : 4;
+                if (typeBareme === 'special' && tauxSpecial) {
+                    primeBase = parseFloat(tauxSpecial) || primeBase;
+                }
+
+                const nbAss = compterAssurancesLF();
+                let coeff = 1;
+                if (nbAss === 0) coeff = 0;
+                else if (nbAss === 1) coeff = 0.5;
+                else if (nbAss >= 3) coeff = 1.25;
+
+                const commBase = (mf * primeBase * coeff) / 100;
+
+                const paliersVol = [
+                    [2500000, 3.5], [2000000, 3.3], [1750000, 3.1], [1500000, 2.8],
+                    [1250000, 2.6], [1000000, 2.3], [750000, 2], [500000, 1.7], [0, 0.8]
+                ];
+                let tauxVol = 0.8;
+                for (let [s, t] of paliersVol) {
+                    if (va >= s) { tauxVol = t; break; }
+                }
+                const primeVol = (mf * tauxVol) / 100;
+
+                const bonusRes = [[35000000, 0.4], [30000000, 0.3], [25000000, 0.2], [23000000, 0.1]];
+                let tauxBonusRes = 0;
+                for (let [s, b] of bonusRes) {
+                    if (bonusReseau >= s) { tauxBonusRes = b; break; }
+                }
+                const montantBonusRes = (mf * tauxBonusRes) / 100;
+
+                let commInter = 0;
+                let partDossierInter = 0;
+                if (va >= 305000) {
+                    const interPaliers = [[1.80, 0.75], [1.60, 0.7], [1.40, 0.5], [1.30, 0.4], [1.20, 0.3], [1.10, 0.1]];
+                    let tauxInter = 0;
+                    for (let [r, t] of interPaliers) {
+                        if (ratio >= r) { tauxInter = t; break; }
+                    }
+                    const bonusAnnuelTotal = (va * tauxInter) / 100;
+                    partDossierInter = (mf / va) * bonusAnnuelTotal;
+                    commInter = bonusAnnuelTotal;
+                }
+
+                return {
+                    commBase,
+                    primeVol,
+                    montantBonusRes,
+                    commInter,
+                    partDossierInter,
+                    total: commBase + primeVol + montantBonusRes + partDossierInter,
+                    totalMensuel: commBase,
+                    totalAnnuel: primeVol + montantBonusRes + partDossierInter,
+                    details: { primeBase, coeff, nbAss, tauxVol, tauxBonusRes }
+                };
+            };
+
+            const calculerAutre = (f) => {
+                const mf = parseFloat(montantFinance) || 0;
+                const comm = (mf * f.taux) / 100;
+                return { total: comm, comm, details: { taux: f.taux } };
+            };
+
+            const toggleFinancier = (id) => {
+                setFinanciers(financiers.map(f => f.id === id ? { ...f, actif: !f.actif } : f));
+            };
+
+            const financiersActifs = financiers.filter(f => f.actif);
+            const resultats = financiersActifs.map(f => ({
+                ...f,
+                rem: f.type === 'loisirsfinance' ? calculerLoisirsFinance() : calculerAutre(f)
+            })).sort((a, b) => b.rem.total - a.rem.total);
+
+            if (!authentifie) {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-indigo-600 to-blue-700 flex items-center justify-center p-6">
+                        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
+                            <div className="text-center mb-8">
+                                <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-100 rounded-full mb-4">
+                                    <Lock />
+                                </div>
+                                <h1 className="text-2xl font-bold text-gray-800 mb-2">Accès sécurisé</h1>
+                                <p className="text-gray-600">Calculatrice Financiers Idylcar</p>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Mot de passe
+                                    </label>
+                                    <input
+                                        type="password"
+                                        value={motDePasse}
+                                        onChange={(e) => {
+                                            setMotDePasse(e.target.value);
+                                            setErreur(false);
+                                        }}
+                                        onKeyPress={handleKeyPress}
+                                        className={`w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
+                                            erreur ? 'border-red-500' : 'border-gray-300'
+                                        }`}
+                                        placeholder="Entrez le mot de passe"
+                                        autoFocus
+                                    />
+                                    {erreur && (
+                                        <p className="mt-2 text-sm text-red-600">
+                                            ❌ Mot de passe incorrect
+                                        </p>
+                                    )}
+                                </div>
+
+                                <button
+                                    onClick={verifierMotDePasse}
+                                    className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition"
+                                >
+                                    Se connecter
+                                </button>
+
+                                <p className="text-xs text-center text-gray-500 mt-4">
+                                    🔒 Session valable 2 heures
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
+                    <div className="max-w-7xl mx-auto">
+                        <div className="bg-white rounded-2xl shadow-xl mb-6">
+                            <div className="flex items-center justify-between p-6 border-b">
+                                <div className="flex items-center gap-3">
+                                    <Calculator />
+                                    <h1 className="text-3xl font-bold text-gray-800">Calculatrice Financiers</h1>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setOngletActif('calculatrice')}
+                                        className={`px-6 py-2 rounded-lg font-medium transition ${ongletActif === 'calculatrice' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                                        Calculatrice
+                                    </button>
+                                    <button onClick={() => setOngletActif('baremes')}
+                                        className={`px-6 py-2 rounded-lg font-medium transition ${ongletActif === 'baremes' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                                        Barèmes
+                                    </button>
+                                </div>
+                            </div>
+
+                            {ongletActif === 'calculatrice' && (
+                                <div className="p-8">
+                                    <div className="grid md:grid-cols-3 gap-6 mb-8">
+                                        <div>
+                                            <h2 className="text-lg font-semibold text-gray-700 mb-4">💰 Dossier</h2>
+                                            <div className="space-y-3">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-600 mb-1">Montant financé (€)</label>
+                                                    <input type="number" value={montantFinance} onChange={(e) => setMontantFinance(e.target.value)}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500" />
+                                                </div>
+                                                
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-600 mb-2">Type financement</label>
+                                                    <div className="flex gap-2">
+                                                        <button onClick={() => setTypeFinancement('credit')}
+                                                            className={`flex-1 px-4 py-2 rounded-lg font-medium ${typeFinancement === 'credit' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                                                            Crédit
+                                                        </button>
+                                                        <button onClick={() => setTypeFinancement('loa')}
+                                                            className={`flex-1 px-4 py-2 rounded-lg font-medium ${typeFinancement === 'loa' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                                                            LOA
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-600 mb-2">Barème</label>
+                                                    <div className="flex gap-2">
+                                                        <button onClick={() => setTypeBareme('standard')}
+                                                            className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium ${typeBareme === 'standard' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                                                            Standard
+                                                        </button>
+                                                        <button onClick={() => setTypeBareme('special')}
+                                                            className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium ${typeBareme === 'special' ? 'bg-orange-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                                                            Spécial
+                                                        </button>
+                                                    </div>
+                                                    {typeBareme === 'special' && (
+                                                        <input type="number" step="0.1" placeholder="Taux manuel %" value={tauxSpecial}
+                                                            onChange={(e) => setTauxSpecial(e.target.value)}
+                                                            className="w-full mt-2 px-4 py-2 border border-orange-300 rounded-lg" />
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <h2 className="text-lg font-semibold text-gray-700 mb-4">🛡️ Assurances</h2>
+                                            <div className="space-y-2">
+                                                {[
+                                                    ['decesEmprunteur', 'Décès emprunteur'],
+                                                    ['decesCoEmprunteur', 'Décès co-emprunteur'],
+                                                    ['extensionGarantie', 'Extension garantie'],
+                                                    ['complementaireFinancement', 'Complémentaire financement'],
+                                                    ['assistance', 'Assistance'],
+                                                    ['contratEntretien', 'Contrat entretien']
+                                                ].map(([k, l]) => (
+                                                    <label key={k} className="flex items-center gap-2 cursor-pointer">
+                                                        <input type="checkbox" checked={assurances[k]}
+                                                            onChange={(e) => setAssurances({...assurances, [k]: e.target.checked})}
+                                                            className="w-4 h-4 text-indigo-600 rounded" />
+                                                        <span className="text-sm text-gray-700">{l}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                            <div className="mt-3 p-2 bg-blue-50 rounded text-xs text-blue-700">
+                                                ℹ️ L'assistance ne compte pas pour LF
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <h2 className="text-lg font-semibold text-gray-700 mb-4">📊 Annuel</h2>
+                                            <div className="space-y-3">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-600 mb-1">CA primable (€)</label>
+                                                    <input type="number" value={volumeAnnuel} onChange={(e) => setVolumeAnnuel(e.target.value)}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-600 mb-1">Ratio ass./dossier</label>
+                                                    <select value={ratioAssurances} onChange={(e) => setRatioAssurances(e.target.value)}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                                                        <option value="1.09">Moins de 1,10</option>
+                                                        <option value="1.10">≥ 1,10</option>
+                                                        <option value="1.20">≥ 1,20</option>
+                                                        <option value="1.30">≥ 1,30</option>
+                                                        <option value="1.40">≥ 1,40</option>
+                                                        <option value="1.60">≥ 1,60</option>
+                                                        <option value="1.80">≥ 1,80</option>
+                                                    </select>
+                                                    <p className="text-xs text-gray-500 mt-1">Pour intermédiation LF</p>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-600 mb-1">CA réseau Idylcar</label>
+                                                    <select value={bonusReseauIdylcar} onChange={(e) => setBonusReseauIdylcar(e.target.value)}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                                                        <option value="0">Moins de 23M€</option>
+                                                        <option value="23000000">≥ 23M€ (+0,1%)</option>
+                                                        <option value="25000000">≥ 25M€ (+0,2%)</option>
+                                                        <option value="30000000">≥ 30M€ (+0,3%)</option>
+                                                        <option value="35000000">≥ 35M€ (+0,4%)</option>
+                                                    </select>
+                                                    <p className="text-xs text-gray-500 mt-1">Pour bonus réseau LF</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <h2 className="text-lg font-semibold text-gray-700 mb-4">🏦 Financiers</h2>
+                                        <div className="flex flex-wrap gap-3">
+                                            {financiers.map(f => (
+                                                <label key={f.id} className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100">
+                                                    <input type="checkbox" checked={f.actif} onChange={() => toggleFinancier(f.id)}
+                                                        className="w-5 h-5 text-indigo-600 rounded" />
+                                                    <span className="font-medium text-gray-700">{f.nom}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {ongletActif === 'baremes' && (
+                                <div className="p-8">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">📋 Barèmes Loisirs Finance</h2>
+                                    
+                                    <div className="grid md:grid-cols-2 gap-6">
+                                        <div className="bg-indigo-50 p-4 rounded-lg">
+                                            <h4 className="font-semibold text-gray-800 mb-3">Prime de base</h4>
+                                            <div className="space-y-2 text-sm">
+                                                <div className="flex justify-between"><span>Crédit :</span><span className="font-bold">4%</span></div>
+                                                <div className="flex justify-between"><span>LOA :</span><span className="font-bold">5%</span></div>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-indigo-50 p-4 rounded-lg">
+                                            <h4 className="font-semibold text-gray-800 mb-3">Coefficient assurances</h4>
+                                            <div className="space-y-2 text-sm">
+                                                <div className="flex justify-between"><span>0 :</span><span className="font-bold text-red-600">0%</span></div>
+                                                <div className="flex justify-between"><span>1 :</span><span className="font-bold text-orange-600">50%</span></div>
+                                                <div className="flex justify-between"><span>2 :</span><span className="font-bold text-green-600">100%</span></div>
+                                                <div className="flex justify-between"><span>3+ :</span><span className="font-bold text-blue-600">125%</span></div>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-indigo-50 p-4 rounded-lg">
+                                            <h4 className="font-semibold text-gray-800 mb-3">Prime volume</h4>
+                                            <div className="space-y-1 text-xs">
+                                                {[
+                                                    ['< 500k', '0,8%'], ['≥ 500k', '1,7%'], ['≥ 750k', '2%'], ['≥ 1M', '2,3%'],
+                                                    ['≥ 1,25M', '2,6%'], ['≥ 1,5M', '2,8%'], ['≥ 1,75M', '3,1%'],
+                                                    ['≥ 2M', '3,3%'], ['≥ 2,5M', '3,5%']
+                                                ].map(([s, t], i) => (
+                                                    <div key={i} className="flex justify-between py-1 border-b border-indigo-200">
+                                                        <span>{s}</span><span className="font-bold">{t}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-indigo-50 p-4 rounded-lg">
+                                            <h4 className="font-semibold text-gray-800 mb-3">Bonus réseau</h4>
+                                            <div className="space-y-2 text-sm">
+                                                {[['23M', '0,1%'], ['25M', '0,2%'], ['30M', '0,3%'], ['35M', '0,4%']].map(([s, b], i) => (
+                                                    <div key={i} className="flex justify-between"><span>≥ {s} :</span><span className="font-bold">{b}</span></div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-indigo-50 p-4 rounded-lg col-span-2">
+                                            <h4 className="font-semibold text-gray-800 mb-3">Commission intermédiation (si CA ≥ 305k)</h4>
+                                            <div className="grid grid-cols-3 gap-4 text-sm">
+                                                {[['1,10', '0,1%'], ['1,20', '0,3%'], ['1,30', '0,4%'], ['1,40', '0,5%'], ['1,60', '0,7%'], ['1,80', '0,75%']].map(([r, t], i) => (
+                                                    <div key={i} className="flex justify-between"><span>≥ {r} :</span><span className="font-bold">{t}</span></div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {ongletActif === 'calculatrice' && resultats.length > 0 && (
+                            <div className="bg-white rounded-2xl shadow-xl p-8">
+                                <h2 className="text-2xl font-bold text-gray-800 mb-6">🎯 Résultats</h2>
+                                
+                                <div className="space-y-4">
+                                    {resultats.map((f, idx) => (
+                                        <div key={f.id} className={`p-6 rounded-xl border-2 ${idx === 0 ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-400' : 'bg-gray-50 border-gray-200'}`}>
+                                            <div className="flex justify-between items-start mb-4">
+                                                <div>
+                                                    <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                                                        {f.nom}
+                                                        {idx === 0 && <span className="text-sm px-3 py-1 bg-green-500 text-white rounded-full">✓ Meilleur</span>}
+                                                    </h3>
+                                                    {f.type === 'loisirsfinance' && (
+                                                        <p className="text-sm text-gray-600 mt-1">
+                                                            {f.rem.details.nbAss} assurance(s) • Coeff: {(f.rem.details.coeff * 100).toFixed(0)}%
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-3xl font-bold text-indigo-600">
+                                                        {f.rem.total.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                                                    </p>
+                                                    <p className="text-sm text-gray-500">Total rémunération</p>
+                                                    {f.type === 'loisirsfinance' && (
+                                                        <div className="mt-2 text-xs">
+                                                            <div className="text-green-700 font-semibold">
+                                                                💰 {f.rem.totalMensuel.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} € (mensuel)
+                                                            </div>
+                                                            <div className="text-blue-700 font-semibold">
+                                                                📅 {f.rem.totalAnnuel.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} € (annuel)
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <button onClick={() => setDetailsOuverts({...detailsOuverts, [f.id]: !detailsOuverts[f.id]})}
+                                                className="w-full flex items-center justify-between py-2 px-4 bg-white rounded-lg hover:bg-gray-100 transition">
+                                                <span className="text-sm font-medium text-gray-700">Voir détail</span>
+                                                {detailsOuverts[f.id] ? <ChevronUp /> : <ChevronDown />}
+                                            </button>
+
+                                            {detailsOuverts[f.id] && (
+                                                <div className="mt-4 p-4 bg-white rounded-lg space-y-3 text-sm">
+                                                    {f.type === 'loisirsfinance' ? (
+                                                        <>
+                                                            <div className="pb-3 border-b-2 border-green-200">
+                                                                <p className="text-xs font-bold text-green-700 mb-2">💰 COMMISSION MENSUELLE</p>
+                                                                <div className="flex justify-between">
+                                                                    <span>Commission base ({f.rem.details.primeBase}% × {(f.rem.details.coeff * 100).toFixed(0)}%):</span>
+                                                                    <span className="font-bold text-green-700">{f.rem.commBase.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                                                </div>
+                                                            </div>
+                                                            
+                                                            <div>
+                                                                <p className="text-xs font-bold text-blue-700 mb-2">📅 PRIMES ANNUELLES</p>
+                                                                <div className="space-y-2">
+                                                                    <div className="flex justify-between">
+                                                                        <span>Prime volume ({f.rem.details.tauxVol}%):</span>
+                                                                        <span className="font-bold">{f.rem.primeVol.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between">
+                                                                        <span>Bonus réseau ({f.rem.details.tauxBonusRes}%):</span>
+                                                                        <span className="font-bold">{f.rem.montantBonusRes.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between">
+                                                                        <span>Part intermédiation (sur bonus annuel de {f.rem.commInter.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €):</span>
+                                                                        <span className="font-bold">{f.rem.partDossierInter.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between pt-2 border-t border-gray-300">
+                                                                        <span className="font-semibold">Total annuel:</span>
+                                                                        <span className="font-bold text-blue-700">{f.rem.totalAnnuel.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </>
+                                                    ) : (
+                                                        <div className="flex justify-between">
+                                                            <span>Commission ({f.rem.details.taux}%):</span>
+                                                            <span className="font-bold">{f.rem.comm.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<CalculatriceFinanciers />, document.getElementById('root'));
+    </script>
+</body>
+</html>

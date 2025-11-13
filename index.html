@@ -90,7 +90,13 @@
             };
 
             const [montantFinance, setMontantFinance] = useState('50000');
-            const [volumeAnnuel, setVolumeAnnuel] = useState('800000');
+            const [volumesAnnuels, setVolumesAnnuels] = useState({
+                loisirsfinance: '800000',
+                arkea: '800000',
+                autre3: '800000',
+                autre4: '800000',
+                autre5: '800000'
+            });
             const [typeFinancement, setTypeFinancement] = useState('credit');
             const [typeBareme, setTypeBareme] = useState('standard');
             const [tauxSpecial, setTauxSpecial] = useState('');
@@ -128,7 +134,7 @@
 
             const calculerLoisirsFinance = () => {
                 const mf = parseFloat(montantFinance) || 0;
-                const va = parseFloat(volumeAnnuel) || 0;
+                const va = parseFloat(volumesAnnuels.loisirsfinance) || 0;
                 const ratio = parseFloat(ratioAssurances) || 0;
                 const bonusReseau = parseFloat(bonusReseauIdylcar) || 35000000;
 
@@ -190,7 +196,7 @@
 
             const calculerArkea = () => {
                 const mf = parseFloat(montantFinance) || 0;
-                const va = parseFloat(volumeAnnuel) || 0;
+                const va = parseFloat(volumesAnnuels.arkea) || 0;
                 const ratio = parseFloat(ratioAssurances) || 0;
 
                 // 1. Rémunération de base
@@ -449,17 +455,47 @@
                                                     </label>
                                                 ))}
                                             </div>
-                                            <div className="mt-3 p-2 bg-blue-50 rounded text-xs text-blue-700">
-                                                ℹ️ L'assistance ne compte pas pour LF
+                                            <div className="mt-3 space-y-1">
+                                                <div className="p-2 bg-blue-50 rounded text-xs text-blue-700">
+                                                    ℹ️ L'assistance n'est proposée que par Loisirs Finance et ne compte pas dans le volume d'assurance
+                                                </div>
+                                                <div className="p-2 bg-purple-50 rounded text-xs text-purple-700">
+                                                    ℹ️ L'entretien n'est proposé que par Arkéa et compte comme une assurance
+                                                </div>
                                             </div>
                                         </div>
 
                                         <div>
-                                            <h2 className="text-lg font-semibold text-gray-700 mb-4">📊 Annuel</h2>
+                                            <h2 className="text-lg font-semibold text-gray-700 mb-4">📊 Objectifs Annuels</h2>
                                             <div className="space-y-3">
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-600 mb-1">CA primable (€)</label>
-                                                    <input type="number" value={volumeAnnuel} onChange={(e) => setVolumeAnnuel(e.target.value)}
+                                                    <label className="block text-sm font-medium text-gray-600 mb-1">Objectif annuel Loisirs Finance (€)</label>
+                                                    <input type="number" value={volumesAnnuels.loisirsfinance}
+                                                        onChange={(e) => setVolumesAnnuels({...volumesAnnuels, loisirsfinance: e.target.value})}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-600 mb-1">Objectif annuel Arkéa (€)</label>
+                                                    <input type="number" value={volumesAnnuels.arkea}
+                                                        onChange={(e) => setVolumesAnnuels({...volumesAnnuels, arkea: e.target.value})}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-600 mb-1">Objectif annuel CA Auto Bank (€)</label>
+                                                    <input type="number" value={volumesAnnuels.autre3}
+                                                        onChange={(e) => setVolumesAnnuels({...volumesAnnuels, autre3: e.target.value})}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-600 mb-1">Objectif annuel Santander (€)</label>
+                                                    <input type="number" value={volumesAnnuels.autre4}
+                                                        onChange={(e) => setVolumesAnnuels({...volumesAnnuels, autre4: e.target.value})}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-600 mb-1">Objectif annuel Cofidis (€)</label>
+                                                    <input type="number" value={volumesAnnuels.autre5}
+                                                        onChange={(e) => setVolumesAnnuels({...volumesAnnuels, autre5: e.target.value})}
                                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg" />
                                                 </div>
                                                 <div>

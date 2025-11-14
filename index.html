@@ -203,7 +203,7 @@
                 { id: 2, nom: 'Arkéa', actif: false, type: 'arkea' },
                 { id: 3, nom: 'CA Auto Bank', actif: false, type: 'cautobank' },
                 { id: 4, nom: 'Santander', actif: false, type: 'autre', taux: 1.9 },
-                { id: 5, nom: 'Cofidis', actif: false, type: 'autre', taux: 2.2 }
+                { id: 5, nom: 'Cofidis', actif: false, type: 'cofidis' }
             ]);
 
             // Calculer les volumes annuels par financier à partir de la répartition
@@ -607,6 +607,62 @@
                 };
             };
 
+            const calculerCofidis = () => {
+                const mf = parseFloat(montantFinance) || 0;
+                const va = getVolumeAnnuel('cofidis');
+
+                // 1. Rémunération de base 6%
+                const commBase = (mf * 6) / 100;
+
+                // 2. Assurance décès 1,5% (non cumulable entre emprunteur et co-emprunteur)
+                let commDeces = 0;
+                if (assurances.decesEmprunteur || assurances.decesCoEmprunteur) {
+                    commDeces = (mf * 1.5) / 100;
+                }
+
+                // 3. Complémentaire financement 1%
+                let commComplementaire = 0;
+                if (assurances.complementaireFinancement) {
+                    commComplementaire = (mf * 1) / 100;
+                }
+
+                // 4. Extension de garantie 1%
+                let commGarantie = 0;
+                if (assurances.extensionGarantie) {
+                    commGarantie = (mf * 1) / 100;
+                }
+
+                // 5. Prime de volume annuel (sur la globalité)
+                let tauxVolume = 0.75; // au premier euro
+                if (va >= 1200000) tauxVolume = 3.0;
+                else if (va >= 800000) tauxVolume = 2.0;
+                else if (va >= 400000) tauxVolume = 1.5;
+
+                const primeVolume = (mf * tauxVolume) / 100;
+
+                // Calcul du total
+                const totalMensuel = commBase + commDeces + commComplementaire + commGarantie;
+                const totalAnnuel = primeVolume;
+                const total = totalMensuel + totalAnnuel;
+
+                return {
+                    commBase,
+                    commDeces,
+                    commComplementaire,
+                    commGarantie,
+                    primeVolume,
+                    total,
+                    totalMensuel,
+                    totalAnnuel,
+                    details: {
+                        tauxVolume,
+                        hasDeces: assurances.decesEmprunteur || assurances.decesCoEmprunteur,
+                        hasComplementaire: assurances.complementaireFinancement,
+                        hasGarantie: assurances.extensionGarantie
+                    }
+                };
+            };
+
             const calculerAutre = (f) => {
                 const mf = parseFloat(montantFinance) || 0;
                 const comm = (mf * f.taux) / 100;
@@ -626,6 +682,8 @@
                     rem = calculerArkea();
                 } else if (f.type === 'cautobank') {
                     rem = calculerCAAutoBank();
+                } else if (f.type === 'cofidis') {
+                    rem = calculerCofidis();
                 } else {
                     rem = calculerAutre(f);
                 }
@@ -1076,6 +1134,140 @@
                                             <div className="text-xs text-gray-600 mt-2">Concerne : décès, complémentaire, garantie, révision</div>
                                         </div>
                                     </div>
+
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-6 mt-12">📋 Barèmes CA Auto Bank</h2>
+
+                                    <div className="grid md:grid-cols-2 gap-6">
+                                        <div className="bg-yellow-50 p-4 rounded-lg">
+                                            <h4 className="font-semibold text-gray-800 mb-3">Rémunération de base - Crédit</h4>
+                                            <div className="space-y-2 text-sm">
+                                                <div className="flex justify-between"><span>0 assurance :</span><span className="font-bold">3,5%</span></div>
+                                                <div className="flex justify-between"><span>1 assurance :</span><span className="font-bold">4,3%</span></div>
+                                                <div className="flex justify-between"><span>2 assurances :</span><span className="font-bold">5,1%</span></div>
+                                                <div className="flex justify-between"><span>3+ assurances :</span><span className="font-bold">5,6%</span></div>
+                                            </div>
+                                            <div className="text-xs text-gray-600 mt-2">⚠️ La garantie ne compte PAS comme assurance</div>
+                                        </div>
+
+                                        <div className="bg-yellow-50 p-4 rounded-lg">
+                                            <h4 className="font-semibold text-gray-800 mb-3">Rémunération de base - LOA</h4>
+                                            <div className="space-y-2 text-sm">
+                                                <div className="flex justify-between"><span>0 assurance :</span><span className="font-bold">3,5%</span></div>
+                                                <div className="flex justify-between"><span>1 assurance :</span><span className="font-bold">4,3%</span></div>
+                                                <div className="flex justify-between"><span>2 assurances :</span><span className="font-bold">5,1%</span></div>
+                                                <div className="flex justify-between"><span>3+ assurances :</span><span className="font-bold">5,1%</span></div>
+                                            </div>
+                                            <div className="text-xs text-gray-600 mt-2">⚠️ Pas de barème au-delà de 2 assurances</div>
+                                        </div>
+
+                                        <div className="bg-yellow-50 p-4 rounded-lg col-span-2">
+                                            <h4 className="font-semibold text-gray-800 mb-3">Garantie forfaitaire</h4>
+                                            <div className="space-y-2 text-sm">
+                                                <div className="flex justify-between"><span>Extension de garantie :</span><span className="font-bold">25€</span></div>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-yellow-50 p-4 rounded-lg col-span-2">
+                                            <h4 className="font-semibold text-gray-800 mb-3">Prime annuelle selon CA groupement</h4>
+                                            <div className="grid md:grid-cols-4 gap-4 text-xs">
+                                                <div>
+                                                    <p className="font-bold text-sm mb-2 text-gray-700">Palier 1: Base</p>
+                                                    <div className="space-y-1">
+                                                        <div>≥3,3M: 3,20%</div>
+                                                        <div>≥3M: 3,00%</div>
+                                                        <div>≥2,25M: 2,70%</div>
+                                                        <div>≥1,75M: 2,50%</div>
+                                                        <div>≥1,5M: 2,30%</div>
+                                                        <div>≥1M: 2,10%</div>
+                                                        <div>≥750k: 2,00%</div>
+                                                        <div>≥500k: 1,40%</div>
+                                                        <div>≥300k: 1,20%</div>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-sm mb-2 text-gray-700">Palier 2: ≥10M€</p>
+                                                    <div className="space-y-1">
+                                                        <div>≥3,3M: 3,40%</div>
+                                                        <div>≥3M: 3,20%</div>
+                                                        <div>≥2,25M: 2,90%</div>
+                                                        <div>≥1,75M: 2,70%</div>
+                                                        <div>≥1,5M: 2,50%</div>
+                                                        <div>≥1M: 2,30%</div>
+                                                        <div>≥750k: 2,20%</div>
+                                                        <div>≥500k: 1,60%</div>
+                                                        <div>≥300k: 1,40%</div>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-sm mb-2 text-gray-700">Palier 3: ≥12M€+80%</p>
+                                                    <div className="space-y-1">
+                                                        <div>≥3,3M: 3,70%</div>
+                                                        <div>≥3M: 3,70%</div>
+                                                        <div>≥2,25M: 3,70%</div>
+                                                        <div>≥1,75M: 3,40%</div>
+                                                        <div>≥1,5M: 3,00%</div>
+                                                        <div>≥1M: 2,75%</div>
+                                                        <div>≥750k: 2,55%</div>
+                                                        <div>≥500k: 1,85%</div>
+                                                        <div>≥300k: 1,60%</div>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-sm mb-2 text-gray-700">Palier 4: ≥13M€+80%</p>
+                                                    <div className="space-y-1">
+                                                        <div>≥3,3M: 4,10%</div>
+                                                        <div>≥3M: 4,10%</div>
+                                                        <div>≥2,25M: 4,10%</div>
+                                                        <div>≥1,75M: 3,80%</div>
+                                                        <div>≥1,5M: 3,50%</div>
+                                                        <div>≥1M: 3,20%</div>
+                                                        <div>≥750k: 2,80%</div>
+                                                        <div>≥500k: 2,00%</div>
+                                                        <div>≥300k: 1,80%</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-yellow-50 p-4 rounded-lg col-span-2">
+                                            <h4 className="font-semibold text-gray-800 mb-3">Bonus supplémentaire</h4>
+                                            <div className="space-y-2 text-sm">
+                                                <div className="flex justify-between"><span>Si pénétration ≥90% ET CA groupement ≥12M€ :</span><span className="font-bold">+0,10%</span></div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-6 mt-12">📋 Barèmes Cofidis</h2>
+
+                                    <div className="grid md:grid-cols-2 gap-6">
+                                        <div className="bg-orange-50 p-4 rounded-lg">
+                                            <h4 className="font-semibold text-gray-800 mb-3">Rémunération au dossier</h4>
+                                            <div className="space-y-2 text-sm">
+                                                <div className="flex justify-between"><span>Barème standard :</span><span className="font-bold">6%</span></div>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-orange-50 p-4 rounded-lg">
+                                            <h4 className="font-semibold text-gray-800 mb-3">Assurances</h4>
+                                            <div className="space-y-2 text-sm">
+                                                <div className="flex justify-between"><span>Assurance décès :</span><span className="font-bold">1,5%</span></div>
+                                                <div className="flex justify-between"><span>Complémentaire financement :</span><span className="font-bold">1%</span></div>
+                                                <div className="flex justify-between"><span>Extension de garantie :</span><span className="font-bold">1%</span></div>
+                                            </div>
+                                            <div className="text-xs text-gray-600 mt-2">⚠️ Décès non cumulable (emprunteur + co-emprunteur)</div>
+                                        </div>
+
+                                        <div className="bg-orange-50 p-4 rounded-lg col-span-2">
+                                            <h4 className="font-semibold text-gray-800 mb-3">Prime de volume annuel</h4>
+                                            <div className="space-y-2 text-sm">
+                                                <div className="flex justify-between"><span>Au premier euro :</span><span className="font-bold">0,75%</span></div>
+                                                <div className="flex justify-between"><span>À partir de 400 000€ :</span><span className="font-bold">1,5%</span></div>
+                                                <div className="flex justify-between"><span>À partir de 800 000€ :</span><span className="font-bold">2%</span></div>
+                                                <div className="flex justify-between"><span>À partir de 1 200 000€ :</span><span className="font-bold">3%</span></div>
+                                            </div>
+                                            <div className="text-xs text-gray-600 mt-2">Sur la globalité du volume</div>
+                                        </div>
+                                    </div>
                                 </div>
                             )}
 
@@ -1230,13 +1422,18 @@
                                                             {f.rem.details.nbAssurancesCAB} assurance(s) • Taux base: {f.rem.details.tauxBase}%
                                                         </p>
                                                     )}
+                                                    {f.type === 'cofidis' && (
+                                                        <p className="text-sm text-gray-600 mt-1">
+                                                            Base 6% • Prime volume: {f.rem.details.tauxVolume}%
+                                                        </p>
+                                                    )}
                                                 </div>
                                                 <div className="text-right">
                                                     <p className="text-3xl font-bold text-indigo-600">
                                                         {f.rem.total.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
                                                     </p>
                                                     <p className="text-sm text-gray-500">Total rémunération</p>
-                                                    {(f.type === 'loisirsfinance' || f.type === 'arkea' || f.type === 'cautobank') && (
+                                                    {(f.type === 'loisirsfinance' || f.type === 'arkea' || f.type === 'cautobank' || f.type === 'cofidis') && (
                                                         <div className="mt-2 text-xs">
                                                             <div className="text-green-700 font-semibold">
                                                                 💰 {f.rem.totalMensuel.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} € (mensuel)
@@ -1373,6 +1570,48 @@
                                                                 </div>
                                                                 <div className="text-xs text-gray-600 mt-2">
                                                                     CA groupement: {(f.rem.details.caGroupement / 1000000).toFixed(0)}M€ • Pénétration: {f.rem.details.penetration}%
+                                                                </div>
+                                                            </div>
+                                                        </>
+                                                    ) : f.type === 'cofidis' ? (
+                                                        <>
+                                                            <div className="pb-3 border-b-2 border-green-200">
+                                                                <p className="text-xs font-bold text-green-700 mb-2">💰 COMMISSION MENSUELLE</p>
+                                                                <div className="space-y-2">
+                                                                    <div className="flex justify-between">
+                                                                        <span>Commission base (6%):</span>
+                                                                        <span className="font-bold">{f.rem.commBase.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between">
+                                                                        <span>Assurance décès (1,5%):</span>
+                                                                        <span className="font-bold">{f.rem.commDeces.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between">
+                                                                        <span>Complémentaire financement (1%):</span>
+                                                                        <span className="font-bold">{f.rem.commComplementaire.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between">
+                                                                        <span>Extension de garantie (1%):</span>
+                                                                        <span className="font-bold">{f.rem.commGarantie.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between pt-2 border-t border-gray-300">
+                                                                        <span className="font-semibold">Total mensuel:</span>
+                                                                        <span className="font-bold text-green-700">{f.rem.totalMensuel.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div>
+                                                                <p className="text-xs font-bold text-blue-700 mb-2">📅 PRIMES ANNUELLES</p>
+                                                                <div className="space-y-2">
+                                                                    <div className="flex justify-between">
+                                                                        <span>Prime volume ({f.rem.details.tauxVolume}%):</span>
+                                                                        <span className="font-bold">{f.rem.primeVolume.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between pt-2 border-t border-gray-300">
+                                                                        <span className="font-semibold">Total annuel:</span>
+                                                                        <span className="font-bold text-blue-700">{f.rem.totalAnnuel.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </>

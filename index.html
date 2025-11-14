@@ -171,13 +171,16 @@
             };
 
             const [montantFinance, setMontantFinance] = useState('50000');
-            const [volumesAnnuels, setVolumesAnnuels] = useState({
-                loisirsfinance: '800000',
-                arkea: '800000',
-                autre3: '800000',
-                autre4: '800000',
-                autre5: '800000'
+            const [objectifGlobal, setObjectifGlobal] = useState(4000000);
+            const [repartitionFinanciers, setRepartitionFinanciers] = useState({
+                loisirsfinance: 25,
+                arkea: 25,
+                cautobank: 25,
+                santander: 15,
+                cofidis: 10
             });
+            const [caGroupementCAB, setCaGroupementCAB] = useState('10000000');
+            const [penetrationAssurancesCAB, setPenetrationAssurancesCAB] = useState('85');
             const [typeFinancement, setTypeFinancement] = useState('credit');
             const [typeBareme, setTypeBareme] = useState('standard');
             const [tauxSpecial, setTauxSpecial] = useState('');
@@ -198,10 +201,29 @@
             const [financiers, setFinanciers] = useState([
                 { id: 1, nom: 'Loisirs Finance', actif: true, type: 'loisirsfinance' },
                 { id: 2, nom: 'Arkéa', actif: false, type: 'arkea' },
-                { id: 3, nom: 'CA Auto Bank', actif: false, type: 'autre', taux: 2.1 },
+                { id: 3, nom: 'CA Auto Bank', actif: false, type: 'cautobank' },
                 { id: 4, nom: 'Santander', actif: false, type: 'autre', taux: 1.9 },
                 { id: 5, nom: 'Cofidis', actif: false, type: 'autre', taux: 2.2 }
             ]);
+
+            // Calculer les volumes annuels par financier à partir de la répartition
+            const getVolumeAnnuel = (typeFinancier) => {
+                const key = typeFinancier === 'loisirsfinance' ? 'loisirsfinance' :
+                            typeFinancier === 'arkea' ? 'arkea' :
+                            typeFinancier === 'cautobank' ? 'cautobank' :
+                            typeFinancier === 'santander' ? 'santander' : 'cofidis';
+                return (objectifGlobal * repartitionFinanciers[key]) / 100;
+            };
+
+            // Fonction pour ajuster les répartitions (s'assurer qu'elles totalisent 100%)
+            const ajusterRepartition = (financier, valeur) => {
+                const nouvelle = { ...repartitionFinanciers, [financier]: parseFloat(valeur) || 0 };
+                const total = Object.values(nouvelle).reduce((sum, v) => sum + v, 0);
+
+                if (total <= 100) {
+                    setRepartitionFinanciers(nouvelle);
+                }
+            };
 
             // States pour la gestion des utilisateurs
             const [utilisateurs, setUtilisateurs] = useState([]);
@@ -309,7 +331,7 @@
 
             const calculerLoisirsFinance = () => {
                 const mf = parseFloat(montantFinance) || 0;
-                const va = parseFloat(volumesAnnuels.loisirsfinance) || 0;
+                const va = getVolumeAnnuel('loisirsfinance');
                 const ratio = parseFloat(ratioAssurances) || 0;
                 const bonusReseau = parseFloat(bonusReseauIdylcar) || 35000000;
 
@@ -371,7 +393,7 @@
 
             const calculerArkea = () => {
                 const mf = parseFloat(montantFinance) || 0;
-                const va = parseFloat(volumesAnnuels.arkea) || 0;
+                const va = getVolumeAnnuel('arkea');
                 const ratio = parseFloat(ratioAssurances) || 0;
 
                 // 1. Rémunération de base
@@ -466,6 +488,125 @@
                 };
             };
 
+            const calculerCAAutoBank = () => {
+                const mf = parseFloat(montantFinance) || 0;
+                const va = getVolumeAnnuel('cautobank');
+                const caGroupement = parseFloat(caGroupementCAB) || 0;
+                const penetration = parseFloat(penetrationAssurancesCAB) || 0;
+
+                // 1. Compter les assurances (garantie ne compte PAS)
+                let nbAssurancesCAB = 0;
+                if (assurances.decesEmprunteur) nbAssurancesCAB++;
+                if (assurances.decesCoEmprunteur) nbAssurancesCAB++;
+                if (assurances.complementaireFinancement) nbAssurancesCAB++;
+
+                // 2. Rémunération de base selon type financement et nb assurances
+                let tauxBase = 0;
+                if (typeFinancement === 'credit') {
+                    if (nbAssurancesCAB === 0) tauxBase = 3.5;
+                    else if (nbAssurancesCAB === 1) tauxBase = 4.3;
+                    else if (nbAssurancesCAB === 2) tauxBase = 5.1;
+                    else tauxBase = 5.6; // 3+
+                } else { // LOA
+                    if (nbAssurancesCAB === 0) tauxBase = 3.5;
+                    else if (nbAssurancesCAB === 1) tauxBase = 4.3;
+                    else if (nbAssurancesCAB === 2) tauxBase = 5.1;
+                    else tauxBase = 5.1; // 3+ pas de barème, on garde 2
+                }
+
+                const commBase = (mf * tauxBase) / 100;
+
+                // 3. Garantie forfaitaire (25€)
+                let montantGarantie = 0;
+                if (assurances.extensionGarantie) {
+                    montantGarantie = 25;
+                }
+
+                // 4. Prime annuelle selon CA groupement et pénétration
+                let tauxPrimeVolume = 0;
+
+                // Déterminer quel palier utiliser
+                if (caGroupement >= 13000000 && penetration >= 80) {
+                    // Palier 4: ≥13M et ≥80%
+                    if (va >= 3300000) tauxPrimeVolume = 4.10;
+                    else if (va >= 3000000) tauxPrimeVolume = 4.10;
+                    else if (va >= 2250000) tauxPrimeVolume = 4.10;
+                    else if (va >= 1750000) tauxPrimeVolume = 3.80;
+                    else if (va >= 1500000) tauxPrimeVolume = 3.50;
+                    else if (va >= 1000000) tauxPrimeVolume = 3.20;
+                    else if (va >= 750000) tauxPrimeVolume = 2.80;
+                    else if (va >= 500000) tauxPrimeVolume = 2.00;
+                    else if (va >= 300000) tauxPrimeVolume = 1.80;
+                    else tauxPrimeVolume = 0;
+                } else if (caGroupement >= 12000000 && penetration >= 80) {
+                    // Palier 3: ≥12M et ≥80%
+                    if (va >= 3300000) tauxPrimeVolume = 3.70;
+                    else if (va >= 3000000) tauxPrimeVolume = 3.70;
+                    else if (va >= 2250000) tauxPrimeVolume = 3.70;
+                    else if (va >= 1750000) tauxPrimeVolume = 3.40;
+                    else if (va >= 1500000) tauxPrimeVolume = 3.00;
+                    else if (va >= 1000000) tauxPrimeVolume = 2.75;
+                    else if (va >= 750000) tauxPrimeVolume = 2.55;
+                    else if (va >= 500000) tauxPrimeVolume = 1.85;
+                    else if (va >= 300000) tauxPrimeVolume = 1.60;
+                    else tauxPrimeVolume = 0;
+                } else if (caGroupement >= 10000000) {
+                    // Palier 2: ≥10M
+                    if (va >= 3300000) tauxPrimeVolume = 3.40;
+                    else if (va >= 3000000) tauxPrimeVolume = 3.20;
+                    else if (va >= 2250000) tauxPrimeVolume = 2.90;
+                    else if (va >= 1750000) tauxPrimeVolume = 2.70;
+                    else if (va >= 1500000) tauxPrimeVolume = 2.50;
+                    else if (va >= 1000000) tauxPrimeVolume = 2.30;
+                    else if (va >= 750000) tauxPrimeVolume = 2.20;
+                    else if (va >= 500000) tauxPrimeVolume = 1.60;
+                    else if (va >= 300000) tauxPrimeVolume = 1.40;
+                    else tauxPrimeVolume = 0;
+                } else {
+                    // Palier 1: base
+                    if (va >= 3300000) tauxPrimeVolume = 3.20;
+                    else if (va >= 3000000) tauxPrimeVolume = 3.00;
+                    else if (va >= 2250000) tauxPrimeVolume = 2.70;
+                    else if (va >= 1750000) tauxPrimeVolume = 2.50;
+                    else if (va >= 1500000) tauxPrimeVolume = 2.30;
+                    else if (va >= 1000000) tauxPrimeVolume = 2.10;
+                    else if (va >= 750000) tauxPrimeVolume = 2.00;
+                    else if (va >= 500000) tauxPrimeVolume = 1.40;
+                    else if (va >= 300000) tauxPrimeVolume = 1.20;
+                    else tauxPrimeVolume = 0;
+                }
+
+                const primeVolume = (mf * tauxPrimeVolume) / 100;
+
+                // 5. Bonus supplémentaire +0,10% si DI≥90% et groupement≥12M ou 13M
+                let bonusSupp = 0;
+                if (penetration >= 90 && (caGroupement >= 12000000 || caGroupement >= 13000000)) {
+                    bonusSupp = (mf * 0.10) / 100;
+                }
+
+                // Calcul du total
+                const totalMensuel = commBase + montantGarantie;
+                const totalAnnuel = primeVolume + bonusSupp;
+                const total = totalMensuel + totalAnnuel;
+
+                return {
+                    commBase,
+                    montantGarantie,
+                    primeVolume,
+                    bonusSupp,
+                    total,
+                    totalMensuel,
+                    totalAnnuel,
+                    details: {
+                        tauxBase,
+                        nbAssurancesCAB,
+                        tauxPrimeVolume,
+                        caGroupement,
+                        penetration
+                    }
+                };
+            };
+
             const calculerAutre = (f) => {
                 const mf = parseFloat(montantFinance) || 0;
                 const comm = (mf * f.taux) / 100;
@@ -483,6 +624,8 @@
                     rem = calculerLoisirsFinance();
                 } else if (f.type === 'arkea') {
                     rem = calculerArkea();
+                } else if (f.type === 'cautobank') {
+                    rem = calculerCAAutoBank();
                 } else {
                     rem = calculerAutre(f);
                 }
@@ -680,38 +823,94 @@
                                         </div>
 
                                         <div>
-                                            <h2 className="text-lg font-semibold text-gray-700 mb-4">📊 Objectifs Annuels</h2>
-                                            <div className="space-y-3">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-600 mb-1">Objectif annuel Loisirs Finance (€)</label>
-                                                    <input type="number" value={volumesAnnuels.loisirsfinance}
-                                                        onChange={(e) => setVolumesAnnuels({...volumesAnnuels, loisirsfinance: e.target.value})}
-                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                                            <h2 className="text-lg font-semibold text-gray-700 mb-4">📊 Objectifs & Paramètres</h2>
+                                            <div className="space-y-4">
+                                                {/* Objectif Global */}
+                                                <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg">
+                                                    <label className="block text-sm font-semibold text-gray-800 mb-2">
+                                                        Objectif global de financement annuel
+                                                    </label>
+                                                    <div className="flex items-center gap-4">
+                                                        <input
+                                                            type="range"
+                                                            min="150000"
+                                                            max="12000000"
+                                                            step="50000"
+                                                            value={objectifGlobal}
+                                                            onChange={(e) => setObjectifGlobal(parseInt(e.target.value))}
+                                                            className="flex-1 h-2 bg-indigo-200 rounded-lg appearance-none cursor-pointer"
+                                                        />
+                                                        <span className="text-lg font-bold text-indigo-700 min-w-[140px]">
+                                                            {(objectifGlobal / 1000000).toFixed(2)}M€
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-600 mb-1">Objectif annuel Arkéa (€)</label>
-                                                    <input type="number" value={volumesAnnuels.arkea}
-                                                        onChange={(e) => setVolumesAnnuels({...volumesAnnuels, arkea: e.target.value})}
-                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+
+                                                {/* Répartition */}
+                                                <div className="p-4 bg-gray-50 rounded-lg space-y-3">
+                                                    <h3 className="text-sm font-semibold text-gray-800 mb-2">Répartition par financier</h3>
+                                                    {[
+                                                        ['Loisirs Finance', 'loisirsfinance'],
+                                                        ['Arkéa', 'arkea'],
+                                                        ['CA Auto Bank', 'cautobank'],
+                                                        ['Santander', 'santander'],
+                                                        ['Cofidis', 'cofidis']
+                                                    ].map(([nom, key]) => (
+                                                        <div key={key}>
+                                                            <div className="flex items-center justify-between mb-1">
+                                                                <label className="text-xs font-medium text-gray-700">{nom}</label>
+                                                                <div className="text-xs font-semibold text-gray-900">
+                                                                    {repartitionFinanciers[key]}% = {((objectifGlobal * repartitionFinanciers[key]) / 100 / 1000).toFixed(0)}k€
+                                                                </div>
+                                                            </div>
+                                                            <input
+                                                                type="range"
+                                                                min="0"
+                                                                max="100"
+                                                                step="5"
+                                                                value={repartitionFinanciers[key]}
+                                                                onChange={(e) => ajusterRepartition(key, e.target.value)}
+                                                                className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                    <div className="pt-2 border-t border-gray-300">
+                                                        <div className="flex justify-between text-sm font-bold">
+                                                            <span>Total</span>
+                                                            <span className={Object.values(repartitionFinanciers).reduce((s, v) => s + v, 0) === 100 ? 'text-green-600' : 'text-red-600'}>
+                                                                {Object.values(repartitionFinanciers).reduce((s, v) => s + v, 0)}%
+                                                            </span>
+                                                        </div>
+                                                    </div>
                                                 </div>
+
+                                                {/* CA Groupement CA Auto Bank */}
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-600 mb-1">Objectif annuel CA Auto Bank (€)</label>
-                                                    <input type="number" value={volumesAnnuels.autre3}
-                                                        onChange={(e) => setVolumesAnnuels({...volumesAnnuels, autre3: e.target.value})}
-                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                                                    <label className="block text-sm font-medium text-gray-600 mb-1">CA groupement CA Auto Bank</label>
+                                                    <select value={caGroupementCAB} onChange={(e) => setCaGroupementCAB(e.target.value)}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                                                        <option value="0">Moins de 10M€</option>
+                                                        <option value="10000000">≥ 10M€</option>
+                                                        <option value="12000000">≥ 12M€ (+ pénétration ≥80%)</option>
+                                                        <option value="13000000">≥ 13M€ (+ pénétration ≥80%)</option>
+                                                    </select>
                                                 </div>
+
+                                                {/* Pénétration Assurances CA Auto Bank */}
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-600 mb-1">Objectif annuel Santander (€)</label>
-                                                    <input type="number" value={volumesAnnuels.autre4}
-                                                        onChange={(e) => setVolumesAnnuels({...volumesAnnuels, autre4: e.target.value})}
-                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                                                    <label className="block text-sm font-medium text-gray-600 mb-1">Pénétration assurances CA Auto Bank (%)</label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        max="100"
+                                                        value={penetrationAssurancesCAB}
+                                                        onChange={(e) => setPenetrationAssurancesCAB(e.target.value)}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                                                    />
+                                                    <p className="text-xs text-gray-500 mt-1">Pour bonus supplémentaire si ≥90%</p>
                                                 </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-600 mb-1">Objectif annuel Cofidis (€)</label>
-                                                    <input type="number" value={volumesAnnuels.autre5}
-                                                        onChange={(e) => setVolumesAnnuels({...volumesAnnuels, autre5: e.target.value})}
-                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg" />
-                                                </div>
+
+                                                {/* Ratio Assurances */}
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-600 mb-1">Ratio ass./dossier</label>
                                                     <select value={ratioAssurances} onChange={(e) => setRatioAssurances(e.target.value)}
@@ -724,8 +923,10 @@
                                                         <option value="1.60">≥ 1,60</option>
                                                         <option value="1.80">≥ 1,80</option>
                                                     </select>
-                                                    <p className="text-xs text-gray-500 mt-1">Pour intermédiation LF</p>
+                                                    <p className="text-xs text-gray-500 mt-1">Pour intermédiation LF & primes Arkéa</p>
                                                 </div>
+
+                                                {/* CA Réseau Idylcar */}
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-600 mb-1">CA réseau Idylcar</label>
                                                     <select value={bonusReseauIdylcar} onChange={(e) => setBonusReseauIdylcar(e.target.value)}
@@ -1024,13 +1225,18 @@
                                                             {f.rem.details.nbAssurancesArkea} assurance(s) • Taux base: {f.rem.details.tauxBase}%
                                                         </p>
                                                     )}
+                                                    {f.type === 'cautobank' && (
+                                                        <p className="text-sm text-gray-600 mt-1">
+                                                            {f.rem.details.nbAssurancesCAB} assurance(s) • Taux base: {f.rem.details.tauxBase}%
+                                                        </p>
+                                                    )}
                                                 </div>
                                                 <div className="text-right">
                                                     <p className="text-3xl font-bold text-indigo-600">
                                                         {f.rem.total.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
                                                     </p>
                                                     <p className="text-sm text-gray-500">Total rémunération</p>
-                                                    {(f.type === 'loisirsfinance' || f.type === 'arkea') && (
+                                                    {(f.type === 'loisirsfinance' || f.type === 'arkea' || f.type === 'cautobank') && (
                                                         <div className="mt-2 text-xs">
                                                             <div className="text-green-700 font-semibold">
                                                                 💰 {f.rem.totalMensuel.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} € (mensuel)
@@ -1126,6 +1332,47 @@
                                                                         <span className="font-semibold">Total annuel:</span>
                                                                         <span className="font-bold text-blue-700">{f.rem.totalAnnuel.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
                                                                     </div>
+                                                                </div>
+                                                            </div>
+                                                        </>
+                                                    ) : f.type === 'cautobank' ? (
+                                                        <>
+                                                            <div className="pb-3 border-b-2 border-green-200">
+                                                                <p className="text-xs font-bold text-green-700 mb-2">💰 COMMISSION MENSUELLE</p>
+                                                                <div className="space-y-2">
+                                                                    <div className="flex justify-between">
+                                                                        <span>Commission base ({f.rem.details.tauxBase}%):</span>
+                                                                        <span className="font-bold">{f.rem.commBase.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between">
+                                                                        <span>Garantie forfaitaire:</span>
+                                                                        <span className="font-bold">{f.rem.montantGarantie.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between pt-2 border-t border-gray-300">
+                                                                        <span className="font-semibold">Total mensuel:</span>
+                                                                        <span className="font-bold text-green-700">{f.rem.totalMensuel.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div>
+                                                                <p className="text-xs font-bold text-blue-700 mb-2">📅 PRIMES ANNUELLES</p>
+                                                                <div className="space-y-2">
+                                                                    <div className="flex justify-between">
+                                                                        <span>Prime volume ({f.rem.details.tauxPrimeVolume}%):</span>
+                                                                        <span className="font-bold">{f.rem.primeVolume.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between">
+                                                                        <span>Bonus supplémentaire (DI≥90%):</span>
+                                                                        <span className="font-bold">{f.rem.bonusSupp.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between pt-2 border-t border-gray-300">
+                                                                        <span className="font-semibold">Total annuel:</span>
+                                                                        <span className="font-bold text-blue-700">{f.rem.totalAnnuel.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="text-xs text-gray-600 mt-2">
+                                                                    CA groupement: {(f.rem.details.caGroupement / 1000000).toFixed(0)}M€ • Pénétration: {f.rem.details.penetration}%
                                                                 </div>
                                                             </div>
                                                         </>
